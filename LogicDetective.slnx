@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="LogicDetective.Tests/LogicDetective.Tests.csproj" />
+  <Project Path="LogicDetective/LogicDetective.csproj" />
+</Solution>
