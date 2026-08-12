@@ -2,14 +2,14 @@ namespace LogicDetective;
 
 internal sealed class Puzzle
 {
-    public IReadOnlyList<Category> Categories { get; }
-    public Solution Solution { get; }
-    public IReadOnlyList<Clue> Clues { get; }
+    public CategoryList Categories { get; }
+    public Answer Answer { get; }
+    public IList<Clue> Clues { get; }
 
-    public Puzzle(IReadOnlyList<Category> categories, Solution solution, IReadOnlyList<Clue> clues)
+    public Puzzle(CategoryList categories, Answer answer, IList<Clue> clues)
     {
         Categories = categories;
-        Solution = solution;
+        Answer = answer;
         Clues = clues;
     }
 }

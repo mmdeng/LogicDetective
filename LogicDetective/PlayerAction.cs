@@ -2,14 +2,13 @@ namespace LogicDetective;
 
 internal sealed class PlayerAction
 {
-    public PlayerActionType Type { get; }
-    public Item FirstItem { get; }
-    public Item SecondItem { get; }
+    public ReasoningState Type { get; }
+    public ItemPair Pair { get; }
 
-    public PlayerAction(PlayerActionType type, Item firstItem, Item secondItem)
+    public PlayerAction(ReasoningState type, Item item1, Item item2) : this(type, new ItemPair(item1, item2)) { }
+    public PlayerAction(ReasoningState type, ItemPair itemPair)
     {
         Type = type;
-        FirstItem = firstItem ?? throw new ArgumentNullException(nameof(firstItem));
-        SecondItem = secondItem ?? throw new ArgumentNullException(nameof(secondItem));
+        Pair = itemPair;
     }
 }

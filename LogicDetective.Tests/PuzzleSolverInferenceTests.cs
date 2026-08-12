@@ -6,43 +6,27 @@ public class PuzzleSolverInferenceTests
     public void FindCertainRelations_WithSameClue_FindsSameAndDifferentRelations()
     {
         var categories = CreateCategories();
+        var itemPair0010 = categories.GetItemPair("a", "00", "b", "10");
+        var itemPair0011 = categories.GetItemPair("a", "00", "b", "11");
+        var clues = new List<Clue> { new SameClue(itemPair0010) };
+        var solver = new PuzzleSolver(categories);
+        var answers = solver.Solve(clues);
 
-        var firstItem = new Item(0, 0, "A");
-        var secondItem = new Item(1, 0, "X");
-
-        var clues = new List<Clue>
-        {
-            new SameClue(firstItem, secondItem)
-        };
-
-        var relations = PuzzleSolver.FindCertainRelations(
-            categories,
-            clues);
-
-        Assert.Contains(
-            relations,
-            clue =>
-                clue is SameClue &&
-                clue.FirstItem.CategoryIndex == 0 &&
-                clue.FirstItem.Index == 0 &&
-                clue.SecondItem.CategoryIndex == 1 &&
-                clue.SecondItem.Index == 0);
-
-        Assert.Contains(
-            relations,
-            clue =>
-                clue is DifferentClue &&
-                clue.FirstItem.CategoryIndex == 0 &&
-                clue.FirstItem.Index == 0 &&
-                clue.SecondItem.CategoryIndex == 1 &&
-                clue.SecondItem.Index == 1);
+        var hintGenerator = new HintGenrator(categories);
+        var relations = hintGenerator.FindCertainRelations(answers);
+        Assert.Contains(relations, m => m is SameClue && m.Pair.Equal(itemPair0010));
+        Assert.Contains(relations, m => m is DifferentClue && m.Pair.Equal(itemPair0011));
     }
 
     [Fact]
     public void FindCertainRelations_WithInsufficientInformation_DoesNotInventRelations()
     {
         var categories = CreateCategories();
-        var relations = PuzzleSolver.FindCertainRelations(categories, Array.Empty<Clue>());
+        var solver = new PuzzleSolver(categories);
+        var answers = solver.Solve([]);
+
+        var hintGenerator = new HintGenrator(categories);
+        var relations = hintGenerator.FindCertainRelations(answers);
         Assert.Empty(relations);
     }
 
@@ -50,15 +34,13 @@ public class PuzzleSolverInferenceTests
     public void FindCertainRelations_WithContradictoryClues_ReturnsNoRelations()
     {
         var categories = CreateCategories();
-        var firstItem = new Item(0, 0, "A");
-        var secondItem = new Item(1, 0, "X");
+        var itemPair = categories.GetItemPair("a", "00", "b", "10");
+        var clues = new List<Clue> { new SameClue(itemPair), new DifferentClue(itemPair) };
+        var solver = new PuzzleSolver(categories);
+        var answers = solver.Solve(clues);
 
-        var clues = new List<Clue>
-        {
-            new SameClue(firstItem, secondItem),
-            new DifferentClue(firstItem, secondItem)
-        };
-        var relations = PuzzleSolver.FindCertainRelations(categories, clues);
+        var hintGenerator = new HintGenrator(categories);
+        var relations = hintGenerator.FindCertainRelations(answers);
         Assert.Empty(relations);
     }
 
@@ -66,23 +48,20 @@ public class PuzzleSolverInferenceTests
     public void FindCertainRelations_DoesNotReturnRelationsWithinSameCategory()
     {
         var categories = CreateCategories();
-        var relations = PuzzleSolver.FindCertainRelations(categories, Array.Empty<Clue>());
-        Assert.All(
-            relations,
-            clue =>
-            {
-                Assert.NotEqual(
-                    clue.FirstItem.CategoryIndex,
-                    clue.SecondItem.CategoryIndex);
-            });
+        var solver = new PuzzleSolver(categories);
+        var answers = solver.Solve([]);
+
+        var hintGenerator = new HintGenrator(categories);
+        var relations = hintGenerator.FindCertainRelations(answers);
+        Assert.All(relations, m => { Assert.NotEqual(m.Pair.Item1.CategoryIndex, m.Pair.Item2.CategoryIndex); });
     }
 
-    private static IReadOnlyList<Category> CreateCategories()
+    private static CategoryList CreateCategories()
     {
-        return
-        [
-            new Category(0, "Category A", ["A", "B"]),
-            new Category(1, "Category B", ["X", "Y"])
-        ];
+        return new CategoryList
+        {
+            { "a", ["00", "01"] },
+            { "b", ["10", "11"] }
+        };
     }
 }

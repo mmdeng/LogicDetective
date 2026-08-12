@@ -23,54 +23,36 @@ internal static class HintDifficultyDiagnostics
 {
     public static HintDifficultyMeasurement Measure(Puzzle puzzle)
     {
-        ArgumentNullException.ThrowIfNull(puzzle);
-
         var clues = puzzle.Clues.ToList();
-
-        var minimumClueCount = FindMinimumClueCount(
-            puzzle.Categories,
-            clues);
-
+        var minimumClueCount = FindMinimumClueCount(puzzle.Categories, clues);
         return new HintDifficultyMeasurement(
             clues.Count,
             minimumClueCount,
             clues.Count - minimumClueCount);
     }
 
-    public static HintDifficultyReport Run(
-        IReadOnlyList<Category> categories,
-        int sampleCount)
+    public static HintDifficultyReport Run(CategoryList categories, int sampleCount)
     {
-        ArgumentNullException.ThrowIfNull(categories);
-
         if (sampleCount <= 0)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(sampleCount),
-                "サンプル数は1以上で指定してください。");
+            throw new ArgumentOutOfRangeException(nameof(sampleCount), "サンプル数は1以上で指定してください。");
         }
-
         var measurements = new List<HintDifficultyMeasurement>(sampleCount);
-
         for (var index = 0; index < sampleCount; index++)
         {
-            var puzzle = PuzzleLogic.Generate(categories);
+            var puzzle = PuzzleLogic.GeneratePuzzle(categories);
             measurements.Add(Measure(puzzle));
         }
-
         return Summarize(measurements);
     }
 
-    public static HintDifficultyReport Summarize(
-        IReadOnlyList<HintDifficultyMeasurement> measurements)
+    public static HintDifficultyReport Summarize(IReadOnlyList<HintDifficultyMeasurement> measurements)
     {
         ArgumentNullException.ThrowIfNull(measurements);
-
         if (measurements.Count == 0)
         {
             throw new ArgumentException("測定結果が空です。", nameof(measurements));
         }
-
         var clueCounts = measurements.Select(x => x.ClueCount).ToArray();
         var minimumClueCounts = measurements.Select(x => x.MinimumClueCount).ToArray();
         var redundantClueCounts = measurements.Select(x => x.RedundantClueCount).ToArray();
@@ -93,13 +75,14 @@ internal static class HintDifficultyDiagnostics
         };
     }
 
-    private static int FindMinimumClueCount(IReadOnlyList<Category> categories, IReadOnlyList<Clue> clues)
+    private static int FindMinimumClueCount(CategoryList categories, IReadOnlyList<Clue> clues)
     {
+        var solver = new PuzzleSolver(categories);
         for (var count = 0; count <= clues.Count; count++)
         {
             foreach (var subset in GetCombinations(clues, count))
             {
-                if (PuzzleSolver.CountSolutions(categories, subset) == 1)
+                if (solver.CountAnswers(subset) == 1)
                 {
                     return count;
                 }
@@ -148,11 +131,7 @@ internal static class HintDifficultyDiagnostics
     {
         var sorted = values.OrderBy(value => value).ToArray();
         var middle = sorted.Length / 2;
-
-        if (sorted.Length % 2 == 1)
-        {
-            return sorted[middle];
-        }
+        if (sorted.Length % 2 == 1) return sorted[middle];
         return (sorted[middle - 1] + sorted[middle]) / 2.0;
     }
 }

@@ -21,3 +21,4 @@
 ## 開発コマンド
 - dotnet run --project LogicDetective/LogicDetective.csproj
 - dotnet run --project LogicDetective/LogicDetective.csproj --diagnose-hint
+- dotnet test --collect:"XPlat Code Coverage" -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover

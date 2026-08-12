@@ -111,7 +111,7 @@ classDiagram
 | パズル   | Puzzle         | 1つのパズル                          |
 | カテゴリ | Category       | 人物、年齢、ペットなどのカテゴリ     |
 | 項目     | Item           | 各カテゴリに含まれる項目             |
-| 正解     | Solution       | パズルの正解                         |
+| 正解     | Answer         | パズルの正解                         |
 | 手掛かり | Clue           | 最初にプレーヤーに与えられる手掛かり |
 | 推理状態 | ReasoningState | プレーヤーが現在保持している推理状態 |
 | 判定状態 | RelationState  | 2項目間の現在の判定状態              |
@@ -124,7 +124,7 @@ classDiagram
 | Title      | パズル名称         |
 | Difficulty | 難易度             |
 | Categories | カテゴリ一覧       |
-| Solution   | 正解               |
+| Answer     | 正解               |
 | Clues      | 手掛かり一覧       |
 
 ### カテゴリ
@@ -142,7 +142,7 @@ classDiagram
 | Id         | ID         | .    | .                                |
 | CategoryId | カテゴリID | .    | .                                |
 | Name       | 項目名     | 27歳 | .                                |
-| Sortorder  | 順序       | 27   | 比較手掛かりの大小比較に使用する |
+| SortOrder  | 順序       | 27   | 比較手掛かりの大小比較に使用する |
 
 項目そのものは、他カテゴリとの関係を直接保持しない。
 

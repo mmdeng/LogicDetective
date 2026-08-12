@@ -1,114 +1,136 @@
 namespace LogicDetective;
 
+using System.Text;
+
 internal static class PuzzleRenderer
 {
-    private const int LabelWidth = 12;
-    private const int CellWidth = 8;
+    private const int LABEL_WIDTH = 12;
+    private const int CELL_WIDTH = 8;
+    private const int GRID_SPACING = 4;
 
-    public static void Print(Puzzle puzzle)
+    public static string GetGameSession(GameSession session)
     {
-        PrintClues(puzzle);
-        Console.WriteLine();
-        PrintGrid(puzzle);
-        Console.WriteLine();
-        PrintAnswer(puzzle);
-        Console.WriteLine();
-        Console.WriteLine($"解の数: {PuzzleSolver.CountSolutions(puzzle.Categories, puzzle.Clues)}");
+        var text = new StringBuilder();
+        text.AppendLine(Command.GetAnswer(session.Puzzle));
+        text.AppendLine();
+        text.AppendLine(Command.GetHelp());
+        text.AppendLine();
+        text.Append(GetGrid(session));
+        text.AppendLine();
+        text.Append(Command.GetClues(session.Puzzle));
+        return text.ToString();
     }
 
-    private static void PrintClues(Puzzle puzzle)
+    static string GetGrid(GameSession session)
     {
-        Console.WriteLine("===== ヒント =====");
-        for (var index = 0; index < puzzle.Clues.Count; index++)
+        var text = new StringBuilder();
+        text.AppendLine("===== 推理グリッド =====");
+        text.AppendLine();
+        foreach (var categoryPairs in EnumerateGridRows(session.Puzzle.Categories))
         {
-            Console.WriteLine($"{index + 1}. {puzzle.Clues[index]}");
+            AppendGridRow(text, session.PlayerState, categoryPairs);
+        }
+        return text.ToString();
+    }
+
+    static IEnumerable<IReadOnlyList<CategoryPair>> EnumerateGridRows(CategoryList categories)
+    {
+        var count = categories.Count;
+        if (count < 2) yield break;
+
+        yield return Enumerable
+            .Range(1, count - 1)
+            .Select(index => new CategoryPair(categories[0], categories[index]))
+            .ToList();
+
+        for (var category1Index = count - 1; category1Index >= 2; category1Index--)
+        {
+            yield return Enumerable
+                .Range(1, category1Index - 1)
+                .Select(category2Index => new CategoryPair(categories[category1Index], categories[category2Index]))
+                .ToList();
         }
     }
 
-    private static void PrintGrid(Puzzle puzzle)
+    static void AppendGridRow(StringBuilder text, PlayerState playerState, IReadOnlyList<CategoryPair> categoryPairs)
     {
-        var categoryA = puzzle.Categories[0];
-        var categoryB = puzzle.Categories[1];
-        var categoryC = puzzle.Categories[2];
-
-        Console.WriteLine("===== ○×グリッド =====");
-        Console.WriteLine();
-        PrintHeader(categoryB);
-
-        for (var itemA = 0; itemA < categoryA.Items.Count; itemA++)
+        var grids = categoryPairs.Select(m => GetCategoryGridLines(playerState, m)).ToList();
+        var lineCount = grids.Max(grid => grid.Count);
+        for (var lineIndex = 0; lineIndex < lineCount; lineIndex++)
         {
-            Console.Write(categoryA.Items[itemA].PadRight(LabelWidth));
-
-            for (var itemB = 0; itemB < categoryB.Items.Count; itemB++)
+            var gridIndex = 0;
+            foreach (var grid in grids)
             {
-                Console.Write(GetMark(puzzle, 0, itemA, 1, itemB).PadRight(CellWidth));
+                if (lineIndex < grid.Count)
+                {
+                    text.Append(grid[lineIndex]);
+                }
+                if (gridIndex < grids.Count - 1)
+                {
+                    text.Append(' ', GRID_SPACING);
+                }
+                gridIndex++;
             }
-            Console.WriteLine();
+            text.AppendLine();
         }
-        Console.WriteLine();
-        PrintHeader(categoryC);
-
-        for (var itemA = 0; itemA < categoryA.Items.Count; itemA++)
+        text.AppendLine();
+    }
+    static List<string> GetCategoryGridLines(PlayerState playerState, CategoryPair categoryPair)
+    {
+        var lines = new List<string>
         {
-            Console.Write(categoryA.Items[itemA].PadRight(LabelWidth));
+            CreatePaddedText(categoryPair.ToString(), GetGridWidth(categoryPair))
+        };
+        var header = CreatePaddedText(string.Empty, LABEL_WIDTH);
+        foreach (var item2 in categoryPair.Category2.Items)
+        {
+            header += CreatePaddedText(item2.Name, CELL_WIDTH);
+        }
+        lines.Add(header);
 
-            for (var itemC = 0; itemC < categoryC.Items.Count; itemC++)
+        foreach (var item1 in categoryPair.Category1.Items)
+        {
+            var line = CreatePaddedText(item1.Name, LABEL_WIDTH);
+            foreach (var item2 in categoryPair.Category2.Items)
             {
-                Console.Write(GetMark(puzzle, 0, itemA, 2, itemC).PadRight(CellWidth));
+                var state = playerState.GetState(item1, item2);
+                var mark = state.GetMark();
+                line += CreatePaddedText(mark, CELL_WIDTH);
             }
-            Console.WriteLine();
+            lines.Add(line);
         }
-
-        Console.WriteLine();
-        Console.WriteLine(categoryC.Name);
-        Console.Write("".PadRight(LabelWidth));
-
-        for (var itemB = 0; itemB < categoryB.Items.Count; itemB++)
-        {
-            Console.Write(categoryB.Items[itemB].PadRight(CellWidth));
-        }
-        Console.WriteLine();
-
-        for (var itemC = 0; itemC < categoryC.Items.Count; itemC++)
-        {
-            Console.Write(categoryC.Items[itemC].PadRight(LabelWidth));
-
-            for (var itemB = 0; itemB < categoryB.Items.Count; itemB++)
-            {
-                Console.Write(GetMark(puzzle, 2, itemC, 1, itemB).PadRight(CellWidth));
-            }
-            Console.WriteLine();
-        }
+        return lines;
     }
 
-    private static void PrintHeader(Category category)
+    static int GetGridWidth(CategoryPair categoryPair)
     {
-        Console.Write("".PadRight(LabelWidth));
-        foreach (var item in category.Items)
-        {
-            Console.Write(item.PadRight(CellWidth));
-        }
-        Console.WriteLine();
+        return LABEL_WIDTH + categoryPair.Category2.Items.Count * CELL_WIDTH;
     }
 
-    private static string GetMark(Puzzle puzzle, int categoryA, int itemA, int categoryB, int itemB)
+    static string CreatePaddedText(string value, int width)
     {
-        return puzzle.Solution.AreSameGroup(categoryA, itemA, categoryB, itemB) ? "○" : "×";
+        var displayWidth = GetDisplayWidth(value);
+        var padding = Math.Max(0, width - displayWidth);
+        return value + new string(' ', padding);
     }
 
-    private static void PrintAnswer(Puzzle puzzle)
+    static int GetDisplayWidth(string value)
     {
-        Console.WriteLine("===== 正解 =====");
-        for (var group = 0; group < puzzle.Solution.GroupCount; group++)
+        var width = 0;
+        foreach (var character in value)
         {
-            var items = new List<string>();
-
-            for (var category = 0; category < puzzle.Categories.Count; category++)
-            {
-                var itemIndex = puzzle.Solution.GetItemIndex(group, category);
-                items.Add(puzzle.Categories[category].Items[itemIndex]);
-            }
-            Console.WriteLine(string.Join(" / ", items));
+            width += IsFullWidth(character) ? 2 : 1;
         }
+        return width;
+    }
+
+    static bool IsFullWidth(char character)
+    {
+        return character >= '\u1100' && character <= '\u11FF'
+            || character >= '\u3000' && character <= '\u303F'
+            || character >= '\u3040' && character <= '\u309F'
+            || character >= '\u30A0' && character <= '\u30FF'
+            || character >= '\uFF00' && character <= '\uFFEF'
+            || character >= '\u4E00' && character <= '\u9FFF';
     }
 }

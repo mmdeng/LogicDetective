@@ -6,13 +6,11 @@ public class PuzzleMinimizerDiagnosticsTests
     public void Measure_ComputesExpectedValues_ForSinglePuzzle()
     {
         var puzzle = CreatePuzzleWithRedundantClues();
-
         var measurement = PuzzleMinimizerDiagnostics.Measure(puzzle);
-
         Assert.Equal(3, measurement.OriginalClueCount);
         Assert.Equal(1, measurement.MinimizedClueCount);
         Assert.Equal(2, measurement.ReducedClueCount);
-        Assert.Equal(1, measurement.MinimizedSolutionCount);
+        Assert.Equal(1, measurement.MinimizedAnswerCount);
     }
 
     [Fact]
@@ -24,9 +22,7 @@ public class PuzzleMinimizerDiagnosticsTests
             new PuzzleMinimizationMeasurement(8, 6, 2, 1),
             new PuzzleMinimizationMeasurement(6, 5, 1, 2)
         };
-
         var report = PuzzleMinimizerDiagnostics.Summarize(measurements);
-
         Assert.Equal(3, report.SampleCount);
         Assert.Equal(8.0, report.AverageBefore);
         Assert.Equal(6.0, report.AverageAfter);
@@ -41,17 +37,16 @@ public class PuzzleMinimizerDiagnosticsTests
 
     private static Puzzle CreatePuzzleWithRedundantClues()
     {
-        var categories = new[]
+        var categories = new CategoryList
         {
-            new Category(0, "People", new[] { "A", "B" }),
-            new Category(1, "Pets", new[] { "X", "Y" })
+            new Category(0, "People", ["A", "B"]),
+            new Category(1, "Pets", ["X", "Y"])
         };
-
-        var solution = new Solution(groupCount: 2, categoryCount: 2);
-        solution.SetItemIndex(0, 0, 0);
-        solution.SetItemIndex(0, 1, 0);
-        solution.SetItemIndex(1, 0, 1);
-        solution.SetItemIndex(1, 1, 1);
+        var answer = new Answer(categories);
+        answer.SetItemIndex(0, 0, 0);
+        answer.SetItemIndex(0, 1, 0);
+        answer.SetItemIndex(1, 0, 1);
+        answer.SetItemIndex(1, 1, 1);
 
         var a = new Item(0, 0, "A");
         var b = new Item(0, 1, "B");
@@ -64,7 +59,6 @@ public class PuzzleMinimizerDiagnosticsTests
             new DifferentClue(a, y),
             new SameClue(b, y)
         };
-
-        return new Puzzle(categories, solution, clues);
+        return new Puzzle(categories, answer, clues);
     }
 }

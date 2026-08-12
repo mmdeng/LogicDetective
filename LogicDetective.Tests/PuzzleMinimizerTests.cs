@@ -2,12 +2,38 @@ namespace LogicDetective.Tests;
 
 public class PuzzleMinimizerTests
 {
+    private static Puzzle CreatePuzzleWithRedundantClues()
+    {
+        var categories = new CategoryList
+        {
+            { "a", ["00", "01"] },
+            { "b", ["10", "11"] }
+        };
+        var item00 = categories.GetItem("a", "00");
+        var item01 = categories.GetItem("a", "01");
+        var item10 = categories.GetItem("b", "10");
+        var item11 = categories.GetItem("b", "11");
+
+        var clues = new Clue[]
+        {
+            new SameClue(item00, item10),
+            new DifferentClue(item00, item11),
+            new SameClue(item01, item11)
+        };
+        var answer = new Answer(categories);
+        answer.SetItemIndex(0, 0, 0);
+        answer.SetItemIndex(0, 1, 0);
+        answer.SetItemIndex(1, 0, 1);
+        answer.SetItemIndex(1, 1, 1);
+        return new Puzzle(categories, answer, clues);
+    }
     [Fact]
-    public void Minimize_KeepsUniqueSolution()
+    public void Minimize_KeepsUniqueAnswer()
     {
         var puzzle = CreatePuzzleWithRedundantClues();
         var minimized = PuzzleMinimizer.Minimize(puzzle);
-        Assert.Equal(1, PuzzleSolver.CountSolutions(minimized.Categories, minimized.Clues));
+        var solver = new PuzzleSolver(puzzle.Categories);
+        Assert.Equal(1, solver.CountAnswers(minimized.Clues.ToList()));
     }
 
     [Fact]
@@ -16,15 +42,6 @@ public class PuzzleMinimizerTests
         var puzzle = CreatePuzzleWithRedundantClues();
         var minimized = PuzzleMinimizer.Minimize(puzzle);
         Assert.True(minimized.Clues.Count < puzzle.Clues.Count);
-    }
-
-    [Fact]
-    public void Minimize_KeepsRequiredClues()
-    {
-        var puzzle = CreatePuzzleWithRequiredClue();
-        var minimized = PuzzleMinimizer.Minimize(puzzle);
-        Assert.Single(minimized.Clues);
-        Assert.Equal(1, PuzzleSolver.CountSolutions(minimized.Categories, minimized.Clues));
     }
 
     [Fact]
@@ -47,66 +64,45 @@ public class PuzzleMinimizerTests
     {
         var puzzle = CreatePuzzleWithRedundantClues();
 
-        var first = PuzzleMinimizer.Minimize(puzzle);
-        var second = PuzzleMinimizer.Minimize(first);
-        var third = PuzzleMinimizer.Minimize(second);
+        var puzzle1 = PuzzleMinimizer.Minimize(puzzle);
+        var puzzle2 = PuzzleMinimizer.Minimize(puzzle1);
+        var puzzle3 = PuzzleMinimizer.Minimize(puzzle2);
 
-        Assert.Equal(1, PuzzleSolver.CountSolutions(first.Categories, first.Clues));
-        Assert.Equal(1, PuzzleSolver.CountSolutions(second.Categories, second.Clues));
-        Assert.Equal(1, PuzzleSolver.CountSolutions(third.Categories, third.Clues));
+        var solver = new PuzzleSolver(puzzle.Categories);
+        Assert.Equal(1, solver.CountAnswers(puzzle1.Clues.ToList()));
+        Assert.Equal(1, solver.CountAnswers(puzzle2.Clues.ToList()));
+        Assert.Equal(1, solver.CountAnswers(puzzle3.Clues.ToList()));
     }
 
     [Fact]
-    public void Minimize_PreservesOriginalSolutionReference()
+    public void Minimize_PreservesOriginalAnswerReference()
     {
         var puzzle = CreatePuzzleWithRedundantClues();
         var minimized = PuzzleMinimizer.Minimize(puzzle);
-        Assert.Same(puzzle.Solution, minimized.Solution);
+        Assert.Same(puzzle.Answer, minimized.Answer);
     }
 
-    private static Puzzle CreatePuzzleWithRedundantClues()
+    [Fact]
+    public void Minimize_KeepsRequiredClues()
     {
-        var categories = new[]
+        var categories = new CategoryList
         {
-            new Category(0, "People", new[] { "A", "B" }),
-            new Category(1, "Pets", new[] { "X", "Y" })
+            { "a", ["00", "01"] },
+            { "b", ["10", "11"] }
         };
-        var solution = new Solution(groupCount: 2, categoryCount: 2);
-        solution.SetItemIndex(0, 0, 0);
-        solution.SetItemIndex(0, 1, 0);
-        solution.SetItemIndex(1, 0, 1);
-        solution.SetItemIndex(1, 1, 1);
+        var answer = new Answer(categories);
+        answer.SetItemIndex(0, 0, 0);
+        answer.SetItemIndex(0, 1, 0);
+        answer.SetItemIndex(1, 0, 1);
+        answer.SetItemIndex(1, 1, 1);
 
-        var a = new Item(0, 0, "A");
-        var b = new Item(0, 1, "B");
-        var x = new Item(1, 0, "X");
-        var y = new Item(1, 1, "Y");
+        var itemPair = categories.GetItemPair("a", "00", "b", "10");
+        var clues = new Clue[] { new SameClue(itemPair) };
+        var puzzle = new Puzzle(categories, answer, clues);
 
-        var clues = new Clue[]
-        {
-            new SameClue(a, x),
-            new DifferentClue(a, y),
-            new SameClue(b, y)
-        };
-        return new Puzzle(categories, solution, clues);
-    }
-
-    private static Puzzle CreatePuzzleWithRequiredClue()
-    {
-        var categories = new[]
-        {
-            new Category(0, "People", new[] { "A", "B" }),
-            new Category(1, "Pets", new[] { "X", "Y" })
-        };
-        var solution = new Solution(groupCount: 2, categoryCount: 2);
-        solution.SetItemIndex(0, 0, 0);
-        solution.SetItemIndex(0, 1, 0);
-        solution.SetItemIndex(1, 0, 1);
-        solution.SetItemIndex(1, 1, 1);
-
-        var a = new Item(0, 0, "A");
-        var x = new Item(1, 0, "X");
-        var clues = new Clue[] { new SameClue(a, x) };
-        return new Puzzle(categories, solution, clues);
+        var minimized = PuzzleMinimizer.Minimize(puzzle);
+        Assert.Single(minimized.Clues);
+        var solver = new PuzzleSolver(puzzle.Categories);
+        Assert.Equal(1, solver.CountAnswers(minimized.Clues.ToList()));
     }
 }

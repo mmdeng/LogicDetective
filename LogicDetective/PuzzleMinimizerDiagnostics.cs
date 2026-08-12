@@ -4,7 +4,7 @@ internal readonly record struct PuzzleMinimizationMeasurement(
     int OriginalClueCount,
     int MinimizedClueCount,
     int ReducedClueCount,
-    int MinimizedSolutionCount);
+    int MinimizedAnswerCount);
 
 internal sealed class PuzzleMinimizationReport
 {
@@ -13,6 +13,7 @@ internal sealed class PuzzleMinimizationReport
     public required double AverageBefore { get; init; }
     public required double AverageAfter { get; init; }
     public required double AverageReduced { get; init; }
+    public required double AverageReducedRate { get; init; }
     public required double MedianBefore { get; init; }
     public required double MedianAfter { get; init; }
     public required double MedianReduced { get; init; }
@@ -25,22 +26,22 @@ internal static class PuzzleMinimizerDiagnostics
 {
     public static PuzzleMinimizationMeasurement Measure(Puzzle puzzle)
     {
-        ArgumentNullException.ThrowIfNull(puzzle);
-
         var minimized = PuzzleMinimizer.Minimize(puzzle);
         var originalClueCount = puzzle.Clues.Count;
         var minimizedClueCount = minimized.Clues.Count;
         var reducedClueCount = originalClueCount - minimizedClueCount;
-        var minimizedSolutionCount = PuzzleSolver.CountSolutions(minimized.Categories, minimized.Clues);
+
+        var solver = new PuzzleSolver(puzzle.Categories);
+        var minimizedAnswerCount = solver.CountAnswers(minimized.Clues.ToList());
 
         return new PuzzleMinimizationMeasurement(
             originalClueCount,
             minimizedClueCount,
             reducedClueCount,
-            minimizedSolutionCount);
+            minimizedAnswerCount);
     }
 
-    public static PuzzleMinimizationReport Run(IReadOnlyList<Category> categories, int sampleCount)
+    public static PuzzleMinimizationReport Run(CategoryList categories, int sampleCount)
     {
         if (sampleCount <= 0)
         {
@@ -50,10 +51,19 @@ internal static class PuzzleMinimizerDiagnostics
 
         for (var index = 0; index < sampleCount; index++)
         {
-            var puzzle = PuzzleLogic.Generate(categories);
+            var puzzle = GeneratePuzzle(categories);
             measurements.Add(Measure(puzzle));
         }
         return Summarize(measurements);
+    }
+
+    static Puzzle GeneratePuzzle(CategoryList categories)
+    {
+        categories.Validate();
+        var answer = PuzzleLogic.GenerateAnswer(categories, true);
+        var clues = PuzzleLogic.GetSolvableClues(categories, answer);
+        var puzzle = new Puzzle(categories, answer, clues);
+        return puzzle;
     }
 
     public static PuzzleMinimizationReport Summarize(IReadOnlyList<PuzzleMinimizationMeasurement> measurements)
@@ -75,12 +85,13 @@ internal static class PuzzleMinimizerDiagnostics
             AverageBefore = before.Average(),
             AverageAfter = after.Average(),
             AverageReduced = reduced.Average(),
+            AverageReducedRate = reduced.Average() / before.Average(),
             MedianBefore = CalculateMedian(before),
             MedianAfter = CalculateMedian(after),
             MedianReduced = CalculateMedian(reduced),
             MinAfter = after.Min(),
             MaxAfter = after.Max(),
-            AllUniqueAfter = measurements.All(measurement => measurement.MinimizedSolutionCount == 1)
+            AllUniqueAfter = measurements.All(measurement => measurement.MinimizedAnswerCount == 1)
         };
     }
 

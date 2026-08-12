@@ -1,180 +1,108 @@
 namespace LogicDetective;
 
-internal static class PuzzleSolver
+/// <summary>
+/// このロジックが不要かもしれない。
+/// 最初に総当たりで複数の正解を作成し、そこから手掛かりの一覧を作成し、正解が一つになるように手掛かりを減らしていく手法。
+/// この手法、SameClue、DifferentClueでしか使えないのでは。
+/// 正解が一つになるまで手掛かりを増やしていく手法の方がいいのでは？
+/// </summary>
+/// <returns></returns>
+internal sealed class PuzzleSolver
 {
-    public static IReadOnlyList<Solution> Solve(IReadOnlyList<Category> categories, IReadOnlyList<Clue> clues)
-    {
-        var solutions = new List<Solution>();
+    public CategoryList Categories { get; }
 
-        foreach (var solution in GetAllSolutions(categories))
-        {
-            if (SatisfiesAllClues(solution, clues))
-            {
-                solutions.Add(solution);
-            }
-        }
-        return solutions;
+    public PuzzleSolver(CategoryList categories)
+    {
+        Categories = categories;
     }
 
-    public static int CountSolutions(IReadOnlyList<Category> categories, IReadOnlyList<Clue> clues)
+    public IReadOnlyList<Answer> Solve(IReadOnlyList<Clue> clues)
     {
-        var solutionCount = 0;
-
-        foreach (var solution in GetAllSolutions(categories))
+        var answers = new List<Answer>();
+        foreach (var answer in GetAllAnswers())
         {
-            if (!SatisfiesAllClues(solution, clues))
+            if (answer.SatisfiesAllClues(clues))
             {
-                continue;
-            }
-            solutionCount++;
-
-            if (solutionCount >= 2)
-            {
-                return solutionCount;
+                answers.Add(answer);
             }
         }
-
-        return solutionCount;
+        return answers;
     }
 
-    public static IReadOnlyList<Clue> FindCertainRelations(IReadOnlyList<Category> categories, IReadOnlyList<Clue> clues)
+    List<Answer> GetAllAnswers()
     {
-        var solutions = Solve(categories, clues);
+        var permutations = new int[Categories.Count][];
+        permutations[0] = CreatePermutation();
 
-        if (solutions.Count == 0)
-        {
-            return Array.Empty<Clue>();
-        }
-        var certainRelations = new List<Clue>();
-
-        for (var categoryA = 0; categoryA < categories.Count; categoryA++)
-        {
-            for (var categoryB = categoryA + 1; categoryB < categories.Count; categoryB++)
-            {
-                for (var itemA = 0; itemA < categories[categoryA].Items.Count; itemA++)
-                {
-                    for (var itemB = 0; itemB < categories[categoryB].Items.Count; itemB++)
-                    {
-                        var firstItem = new Item(categoryA, itemA, categories[categoryA].Items[itemA]);
-
-                        var secondItem = new Item(categoryB, itemB, categories[categoryB].Items[itemB]);
-
-                        var firstRelation = solutions[0].AreSameGroup(
-                            categoryA,
-                            itemA,
-                            categoryB,
-                            itemB);
-
-                        var isCertain = true;
-
-                        for (var solutionIndex = 1; solutionIndex < solutions.Count; solutionIndex++)
-                        {
-                            var relation = solutions[solutionIndex].AreSameGroup(
-                                categoryA,
-                                itemA,
-                                categoryB,
-                                itemB);
-
-                            if (relation != firstRelation)
-                            {
-                                isCertain = false;
-                                break;
-                            }
-                        }
-                        if (!isCertain) continue;
-                        if (firstRelation)
-                        {
-                            certainRelations.Add(new SameClue(firstItem, secondItem));
-                        }
-                        else
-                        {
-                            certainRelations.Add(new DifferentClue(firstItem, secondItem));
-                        }
-                    }
-                }
-            }
-        }
-        return certainRelations;
+        var answers = new List<Answer>();
+        GetAllAnswersRecursive(answers, permutations, 1);
+        return answers;
     }
 
-    private static bool SatisfiesAllClues(Solution solution, IReadOnlyList<Clue> clues)
+    void GetAllAnswersRecursive(List<Answer> answers, int[][] permutations, int categoryIndex)
     {
-        foreach (var clue in clues)
-        {
-            var sameGroup = solution.AreSameGroup(
-                clue.FirstItem.CategoryIndex,
-                clue.FirstItem.Index,
-                clue.SecondItem.CategoryIndex,
-                clue.SecondItem.Index);
-
-            if (clue is SameClue && !sameGroup) return false;
-            if (clue is DifferentClue && sameGroup) return false;
-        }
-        return true;
-    }
-
-    private static IEnumerable<Solution> GetAllSolutions(IReadOnlyList<Category> categories)
-    {
-        var groupCount = categories[0].Items.Count;
-        var permutations = new int[categories.Count][];
-
-        permutations[0] = Enumerable.Range(0, groupCount).ToArray();
-
-        foreach (var solution in GenerateSolutions(categories, permutations, 1))
-        {
-            yield return solution;
-        }
-    }
-
-    private static IEnumerable<Solution> GenerateSolutions(IReadOnlyList<Category> categories, int[][] permutations, int category)
-    {
-        var groupCount = categories[0].Items.Count;
-
-        if (category == categories.Count)
-        {
-            var solution = new Solution(groupCount, categories.Count);
-
-            for (var group = 0; group < groupCount; group++)
-            {
-                for (var categoryIndex = 0; categoryIndex < categories.Count; categoryIndex++)
-                {
-                    solution.SetItemIndex(group, categoryIndex, permutations[categoryIndex][group]);
-                }
-            }
-            yield return solution;
-            yield break;
-        }
-        var permutation = Enumerable.Range(0, groupCount).ToArray();
+        var permutation = CreatePermutation();
         do
         {
-            permutations[category] = permutation.ToArray();
-            foreach (var solution in GenerateSolutions(categories, permutations, category + 1))
+            permutations[categoryIndex] = permutation;
+            if (categoryIndex < Categories.Count - 1)
             {
-                yield return solution;
+                GetAllAnswersRecursive(answers, permutations, categoryIndex + 1);
+            }
+            else
+            {
+                var answer = new Answer(Categories);
+                answer.SetPermutations(permutations);
+                answers.Add(answer);
             }
         }
-        while (NextPermutation(permutation));
+        while (Mathmatics.NextPermutation(permutation));
     }
 
-    private static bool NextPermutation(int[] values)
+    public int[] CreatePermutation()
     {
-        var pivotIndex = values.Length - 2;
+        return Enumerable.Range(0, Categories.GetItemCount()).ToArray();
+    }
 
-        while (pivotIndex >= 0 && values[pivotIndex] >= values[pivotIndex + 1])
+    public int[][] CreatePermutations(bool isRandom = true)
+    {
+        var permutations = new int[Categories.Count][];
+        permutations[0] = CreatePermutation();
+        for (var i = 1; i < Categories.Count; i++)
         {
-            pivotIndex--;
+            // 0番目のカテゴリは順番を固定する。正解は以下の様に出すが、田中、鈴木、井上、高橋の順番は変えない。
+            // 問題を作るために年齢、ペットの順番はランダムにする。
+            // ロジック的には別に0番目のカテゴリもランダムにしていいんだけど、
+            // プレーヤーにわかりやすいようにこうしている。
+            // ===== 正解 =====
+            // グループ1: 田中 / 53歳 / 魚
+            // グループ2: 鈴木 / 35歳 / 猫
+            // グループ3: 井上 / 42歳 / 犬
+            // グループ4: 高橋 / 24歳 / 鳥
+            var permutation = CreatePermutation();
+            if (isRandom) Mathmatics.Shuffle(permutation);
+            permutations[i] = permutation;
         }
-        if (pivotIndex < 0)
+        return permutations;
+    }
+
+    /// <summary>
+    /// 指定の手掛かりリストで解ける解の数を取得
+    /// </summary>
+    /// <param name="categories">カテゴリリスト</param>
+    /// <param name="clues">指定の手掛かりリスト</param>
+    /// <returns>解ける解の数</returns>
+    public int CountAnswers(IReadOnlyList<Clue> clues)
+    {
+        var answerCount = 0;
+        var answers = GetAllAnswers();
+        foreach (var answer in answers)
         {
-            return false;
+            if (!answer.SatisfiesAllClues(clues)) continue;
+
+            answerCount++;
+            if (answerCount >= 2) return answerCount;
         }
-        var swapIndex = values.Length - 1;
-        while (values[swapIndex] <= values[pivotIndex])
-        {
-            swapIndex--;
-        }
-        (values[pivotIndex], values[swapIndex]) = (values[swapIndex], values[pivotIndex]);
-        Array.Reverse(values, pivotIndex + 1, values.Length - pivotIndex - 1);
-        return true;
+        return answerCount;
     }
 }

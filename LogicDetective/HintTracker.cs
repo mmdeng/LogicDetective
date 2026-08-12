@@ -2,7 +2,7 @@ namespace LogicDetective;
 
 internal sealed class HintTracker
 {
-    private readonly HashSet<HintKey> _shownHints = new();
+    private readonly HashSet<HintKey> _shownHints = [];
 
     public Clue? GetNext(IReadOnlyList<Clue> relations)
     {
@@ -10,6 +10,7 @@ internal sealed class HintTracker
         {
             var key = CreateKey(relation);
 
+            // 既に表示済みのヒントはスキップ
             if (_shownHints.Add(key))
             {
                 return relation;
@@ -21,7 +22,7 @@ internal sealed class HintTracker
 
     private static HintKey CreateKey(Clue clue)
     {
-        var relationType = clue switch
+        var type = clue switch
         {
             SameClue => true,
             DifferentClue => false,
@@ -29,17 +30,17 @@ internal sealed class HintTracker
         };
 
         return new HintKey(
-            relationType,
-            clue.FirstItem.CategoryIndex,
-            clue.FirstItem.Index,
-            clue.SecondItem.CategoryIndex,
-            clue.SecondItem.Index);
+            type,
+            clue.Pair.Item1.CategoryIndex,
+            clue.Pair.Item1.ItemIndex,
+            clue.Pair.Item2.CategoryIndex,
+            clue.Pair.Item2.ItemIndex);
     }
 
     private readonly record struct HintKey(
         bool IsSame,
-        int FirstCategoryIndex,
-        int FirstItemIndex,
-        int SecondCategoryIndex,
-        int SecondItemIndex);
+        int CategoryIndex1,
+        int ItemIndex1,
+        int CategoryIndex2,
+        int ItemIndex2);
 }

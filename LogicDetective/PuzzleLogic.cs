@@ -4,50 +4,56 @@ internal static class PuzzleLogic
 {
     private static readonly Random Random = new();
 
-    public static Puzzle Generate(IReadOnlyList<Category> categories)
+    public static Puzzle GeneratePuzzle(CategoryList categories, bool isRandom = true)
     {
-        ValidateCategories(categories);
-
-        var solution = CreateRandomSolution(categories);
-        var clues = CreateUniqueClues(categories, solution);
-        var puzzle = new Puzzle(categories, solution, clues);
+        categories.Validate();
+        var answer = GenerateAnswer(categories, isRandom);
+        var comparisonClues = CreateComparisonClues(categories);
+        var clues = GetSolvableClues(categories, answer);
+        var puzzle = new Puzzle(categories, answer, clues);
+        //AddComparisonClues(puzzle);
         return PuzzleMinimizer.Minimize(puzzle);
     }
 
-    private static Solution CreateRandomSolution(IReadOnlyList<Category> categories)
+    static List<ClueComparison> CreateComparisonClues(CategoryList categories)
     {
-        var groupCount = categories[0].Items.Count;
-        var categoryCount = categories.Count;
-        var solution = new Solution(groupCount, categoryCount);
+        var ageCategory = categories.SingleOrDefault(m => m.Name == "年齢");
+        if (ageCategory is null) return [];
 
-        for (var group = 0; group < groupCount; group++)
-        {
-            solution.SetItemIndex(group, 0, group);
-        }
-        for (var category = 1; category < categoryCount; category++)
-        {
-            var permutation = CreateRandomPermutation(groupCount);
-            for (var group = 0; group < groupCount; group++)
-            {
-                solution.SetItemIndex(group, category, permutation[group]);
-            }
-        }
-
-        return solution;
+        var otherCategory = categories.First(m => m.Index != ageCategory.Index);
+        var clue = new ClueComparison(otherCategory.Items[0], otherCategory.Items[1], ageCategory, 1, ClueComparisonOperator.LessThanOrEqual);
+        return [clue];
     }
 
-    private static List<Clue> CreateUniqueClues(IReadOnlyList<Category> categories, Solution solution)
+    public static Answer GenerateAnswer(CategoryList categories, bool isRandom = true)
     {
-        var candidateClues = CreateCandidateClues(categories, solution);
-        Shuffle(candidateClues);
+        var itemCount = categories[0].Items.Count;
+        var categoryCount = categories.Count;
+        var answer = new Answer(itemCount, categoryCount);
+
+        var solver = new PuzzleSolver(categories);
+        var permutations = solver.CreatePermutations(isRandom);
+        answer.SetPermutations(permutations);
+        return answer;
+    }
+    /// <summary>
+    /// 一意解を導くことが可能な手掛かりのリストを取得
+    /// </summary>
+    /// <param name="categories"></param>
+    /// <param name="answer"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
+    public static List<Clue> GetSolvableClues(CategoryList categories, Answer answer)
+    {
+        var clues = EnumerateAllClues(categories, answer).ToList();
+        Mathmatics.Shuffle(clues);
 
         var selectedClues = new List<Clue>();
-
-        foreach (var clue in candidateClues)
+        var solver = new PuzzleSolver(categories);
+        foreach (var clue in clues)
         {
             selectedClues.Add(clue);
-
-            if (PuzzleSolver.CountSolutions(categories, selectedClues) == 1)
+            if (solver.CountAnswers(selectedClues) == 1)
             {
                 return selectedClues;
             }
@@ -55,71 +61,24 @@ internal static class PuzzleLogic
         throw new InvalidOperationException("一意解となるヒントを生成できませんでした。");
     }
 
-    private static List<Clue> CreateCandidateClues(IReadOnlyList<Category> categories, Solution solution)
+    /// <summary>
+    /// 正解から全手掛かりを列挙する。
+    /// </summary>
+    /// <param name="categories"></param>
+    /// <param name="answer">正解</param>
+    /// <returns>全手掛かり</returns>
+    private static IEnumerable<Clue> EnumerateAllClues(CategoryList categories, Answer answer)
     {
-        var clues = new List<Clue>();
-
-        for (var categoryA = 0; categoryA < categories.Count; categoryA++)
+        foreach (var itemPair in categories.EnumerateAllItemPairs())
         {
-            for (var categoryB = categoryA + 1; categoryB < categories.Count; categoryB++)
+            if (answer.AreSameGroup(itemPair))
             {
-                for (var itemA = 0; itemA < solution.GroupCount; itemA++)
-                {
-                    for (var itemB = 0; itemB < solution.GroupCount; itemB++)
-                    {
-                        var firstItem = new Item(categoryA, itemA, categories[categoryA].Items[itemA]);
-                        var secondItem = new Item(categoryB, itemB, categories[categoryB].Items[itemB]);
-                        if (solution.AreSameGroup(categoryA, itemA, categoryB, itemB))
-                        {
-                            clues.Add(new SameClue(firstItem, secondItem));
-                        }
-                        else
-                        {
-                            clues.Add(new DifferentClue(firstItem, secondItem));
-                        }
-                    }
-                }
+                yield return new SameClue(itemPair);
             }
-        }
-        return clues;
-    }
-
-    private static int[] CreateRandomPermutation(int count)
-    {
-        var values = Enumerable.Range(0, count).ToArray();
-        Shuffle(values);
-        return values;
-    }
-
-    private static void ValidateCategories(IReadOnlyList<Category> categories)
-    {
-        if (categories.Count < 3)
-        {
-            throw new ArgumentException("カテゴリは3個以上必要です。");
-        }
-
-        var itemCount = categories[0].Items.Count;
-
-        if (itemCount < 2)
-        {
-            throw new ArgumentException("各カテゴリには2個以上の項目が必要です。");
-        }
-
-        foreach (var category in categories)
-        {
-            if (category.Items.Count != itemCount)
+            else
             {
-                throw new ArgumentException("全カテゴリの項目数を同じにしてください。");
+                yield return new DifferentClue(itemPair);
             }
-        }
-    }
-
-    private static void Shuffle<T>(IList<T> items)
-    {
-        for (var i = items.Count - 1; i > 0; i--)
-        {
-            var randomIndex = Random.Next(i + 1);
-            (items[i], items[randomIndex]) = (items[randomIndex], items[i]);
         }
     }
 }
